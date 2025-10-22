@@ -259,12 +259,30 @@ class Database {
             if (!/^\w+$/.test(dbConfig.dbName)) {
                 throw Error("Invalid database name. A database name can only consist of letters, numbers and underscores");
             }
+            let sslOptions = null;
+
+            if (dbConfig.ssl) {
+                const certPath = path.join(__dirname, "../certs/your-cert.pem");
+
+                if (!fs.existsSync(certPath)) {
+                    throw new Error(
+            `SSL is enabled but certificate file not found at ${certPath}. Please upload your PEM file.`
+                    );
+                }
+
+                sslOptions = {
+                    rejectUnauthorized: true,
+                    ca: fs.readFileSync(path.join(__dirname, "../certs/your-cert.pem")),
+                };
+            }
 
             const connection = await mysql.createConnection({
                 host: dbConfig.hostname,
                 port: dbConfig.port,
                 user: dbConfig.username,
                 password: dbConfig.password,
+                ssl: sslOptions || undefined,
+
             });
 
             await connection.execute("CREATE DATABASE IF NOT EXISTS " + dbConfig.dbName + " CHARACTER SET utf8mb4");
