@@ -817,8 +817,8 @@
                                 </div>
                             </div>
 
-                            <div v-if="hasDomain" class="my-3 form-check">
-                                <input id="domain-expiry-notification" v-model="monitor.domainExpiryNotification" class="form-check-input" type="checkbox">
+                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'grpc-keyword' || monitor.type === 'dns' || monitor.type === 'ping' || monitor.type === 'steam' || monitor.type === 'gamedig' || monitor.type === 'radius' || monitor.type === 'mqtt' || monitor.type === 'real-browser'" class="my-3 form-check">
+                                <input id="domain-expiry-notification" v-model="monitor.domainExpiryNotification" class="form-check-input" type="checkbox" :disabled="!hasDomain">
                                 <label class="form-check-label" for="domain-expiry-notification">
                                     {{ $t("labelDomainNameExpiryNotification") }}
                                 </label>
@@ -1442,6 +1442,7 @@ export default {
                 // Do not add default value here, please check init() method
             },
             hasDomain: false,
+            checkMonitorDebounce: null,
             acceptedStatusCodeOptions: [],
             acceptedWebsocketCodeOptions: [],
             dnsresolvetypeOptions: [],
@@ -1795,12 +1796,15 @@ message HealthCheckResponse {
         },
 
         "monitorTypeUrlHost"(data) {
-            this.$root.getSocket().emit("checkMointor", data, (res) => {
-                this.hasDomain = !!res?.domain;
-                if (!res?.domain) {
-                    this.monitor.domainExpiryNotification = false;
-                }
-            });
+            clearTimeout(this.checkMonitorDebounce);
+            this.checkMonitorDebounce = setTimeout(() => {
+                this.$root.getSocket().emit("checkMointor", data, (res) => {
+                    this.hasDomain = !!res?.domain;
+                    if (!res?.domain) {
+                        this.monitor.domainExpiryNotification = false;
+                    }
+                });
+            }, 500);
         },
 
         "monitor.type"(newType, oldType) {
@@ -1949,6 +1953,11 @@ message HealthCheckResponse {
         this.acceptedStatusCodeOptions = acceptedStatusCodeOptions;
         this.dnsresolvetypeOptions = dnsresolvetypeOptions;
         this.kafkaSaslMechanismOptions = kafkaSaslMechanismOptions;
+    },
+    beforeUnmount() {
+        if (this.checkMonitorDebounce) {
+            clearTimeout(this.checkMonitorDebounce);
+        }
     },
     methods: {
         /**
